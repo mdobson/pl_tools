@@ -1,175 +1,65 @@
-from exceptions import LoopBreak, LoopContinue, FuncReturn
+import argparse
 from parser import pl_parse_prog
+from interpreter import pl_eval
 
-def name_lookup(env, key):
-    while env:
-        current, env = env
-        if key in current:
-            return current
-    raise ValueError(f"Name {key} not found")
+def main():
+    parser = argparse.ArgumentParser(description='Programming Language Processor')
+    parser.add_argument('file', nargs='?', help='Input file to process')
+    parser.add_argument('--parse', action='store_true', help='Parse the program and show AST')
+    parser.add_argument('--compile', action='store_true', help='Compile the program')
+    parser.add_argument('--interpret', action='store_true', help='Interpret the program')
+    parser.add_argument('--repl', action='store_true', help='Start REPL mode')
 
-def pl_eval(env, node):
-    if not isinstance(node, list):
-        assert isinstance(node, str)
-        return name_lookup(env, node)[node]
+    args = parser.parse_args()
 
-    if len(node) == 0:
-        raise ValueError("Empty list")
-    
-    import operator
-    binary_ops = {
-        '+': operator.add,
-        '-': operator.sub,
-        '*': operator.mul,
-        '/': operator.truediv,
-        'eq': operator.eq,
-        'ne': operator.ne,
-        'lt': operator.lt,
-        'le': operator.le,
-        'gt': operator.gt,
-        'ge': operator.ge,
-        'and': operator.and_,
-        'or': operator.or_
-    }
-    
-    if len(node) == 3 and node[0] in binary_ops:
-        op = binary_ops[node[0]]
-        opret = op(pl_eval(env, node[1]), pl_eval(env, node[2]))
-        return opret
-    
-    unops = {
-        'neg': operator.neg,
-        'not': operator.not_
-    }
+    # Handle REPL mode
+    if args.repl:
+        print("REPL mode not implemented yet")
+        return
 
-    if len(node) == 2 and node[0] in unops:
-        op = unops[node[0]]
-        return op(pl_eval(env, node[1]))
-    
-    if len(node) in (3,4) and node[0] in ('?', 'if'):
-        _, cond, yes, *no = node
-        no = no[0] if no else ['val', None]
-        new_env = (dict(), env)
-        if pl_eval(new_env, cond):
-            return pl_eval(new_env, yes)
-        else:
-            return pl_eval(new_env, no)
+    # If no file is provided and not in REPL mode, show help
+    if not args.file and not args.repl:
+        parser.print_help()
+        return
 
-    if node[0] == 'print':
-        return print(*(pl_eval(env, val) for val in node[1:]))
-    
-    if node[0] in ('do', 'then', 'else') and len(node) > 1:
-        new_env = (dict(), env)
-        for val in node[1:]:
-            val = pl_eval(new_env, val)
-        return val
-    
-    if node[0] == 'var':
-        _, name, val = node
-        scope, _ = env
-        if name in scope:
-            raise ValueError(f"Name {name} already defined")
-        val = pl_eval(env, val)
-        scope[name] = val
-        return val
-    
-    if node[0] == 'set' and len(node) == 3:
-        _, name, val = node
-        scope = name_lookup(env, name)
-        val = pl_eval(env, val)
-        scope[name] = val
-        return val
-    
-    if node[0] == 'loop' and len(node) == 3:
-        _, cond, body = node
-        ret = None
-        while True:
-            new_env = (dict(), env)
-            if not pl_eval(new_env, cond):
-                break
-            try:
-                ret = pl_eval(new_env, body)
-            except LoopBreak:
-                break
-            except LoopContinue:
-                continue
-        return ret
-    
-    if node[0] == 'def' and len(node) == 4:
-        _, name, args, body = node
-        for arg_name in args:
-            if not isinstance(arg_name, str):
-                raise ValueError("invalid argument name")
-        if len(args) != len(set(args)):
-            raise ValueError("duplicate argument name")
-        dct, _ = env
-        key = (name, len(args))
-        if key in dct:
-            raise ValueError("function already defined")
-        dct[key] = (args, body, env)
-        return 
-    
-    if node[0] == 'call' and len(node) >= 2:
-        _, name, *args = node
-        key = (name, len(args))
-        fargs, fbody, fenv = name_lookup(env, key)[key]
-        new_env = dict()
-        for arg_name, arg_val in zip(fargs, args):
-            new_env[arg_name] = pl_eval(env, arg_val)
+    # Read the input file
+    if args.file:
         try:
-            return pl_eval((new_env, fenv), fbody)
-        except FuncReturn as ret:
-            return ret.val
-    
-    if node[0] == 'break' and len(node) == 1:
-        raise LoopBreak
-    
-    if node[0] == 'continue' and len(node) == 1:
-        raise LoopContinue
-    
-    if node[0] == 'return' and len(node) == 1:
-        raise FuncReturn(None)
-    
-    if node[0] == 'return' and len(node) == 2:
-        _, val = node
-        raise FuncReturn(pl_eval(env, val))
-    
-    if len(node) == 2:
-        return node[1]
+            with open(args.file, 'r') as f:
+                program = f.read()
+        except FileNotFoundError:
+            print(f"Error: File '{args.file}' not found")
+            return
+        except Exception as e:
+            print(f"Error reading file: {e}")
+            return
 
-    raise ValueError("Invalid node")
+        # Parse mode
+        if args.parse:
+            try:
+                ast = pl_parse_prog(program)
+                print("Parse result:")
+                import pprint
+                pprint.pprint(ast, indent=2, width=80)
+            except Exception as e:
+                print(f"Parse error: {e}")
+                return
 
-def test_eval():
-    def f(s):
-        parse_result = pl_parse_prog(s)
-        result = pl_eval(None, parse_result)
-        return result
-    assert f('''
-        (def fib (n)
-            (if (le n 0)
-                (then 0)
-                (else (+ n (call fib (- n 1))))))
-        (call fib 5)
-    ''') == 5 + 4 + 3 + 2 + 1
+        # Compile mode
+        if args.compile:
+            print("Compilation not implemented yet")
+            return
 
-    assert f('''
-        (def fib (n) (do
-            (var r 0)
-            (loop (gt n 0) (do
-                (set r (+ r n))
-                (set n (- n 1))
-            ))
-            (return r)
-        ))
-        (call fib 5)
-    ''') == 5 + 4 + 3 + 2 + 1
+        # Interpret mode
+        if args.interpret:
+            try:
+                ast = pl_parse_prog(program)
+                result = pl_eval((dict(), None), ast)
+                if result is not None:
+                    print("Result:", result)
+            except Exception as e:
+                print(f"Runtime error: {e}")
+                return
 
-    assert f('''
-        (def add (n) (do
-            (var r 1)
-            (return (+ r n))
-        ))
-        (call add 5)
-    ''') == 6
 if __name__ == '__main__':
-    test_eval() 
+    main()

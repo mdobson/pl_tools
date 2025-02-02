@@ -27,9 +27,21 @@ install: venv
 		echo "No requirements.txt found. Skipping dependency installation."; \
 	fi
 
-# Run the main Python script using the virtual environment's Python interpreter
-run: venv
-	$(PYTHON) backends/py/main.py
+# Run the main Python script in different modes
+run-py: venv
+	$(PYTHON) backends/py/main.py samples/pl/hello.pl_lang --interpret
+
+parse-py: venv
+	$(PYTHON) backends/py/main.py samples/pl/hello.pl_lang --parse
+
+compile-py: venv
+	$(PYTHON) backends/py/main.py samples/pl/hello.pl_lang --compile
+
+repl-py: venv
+	$(PYTHON) backends/py/main.py --repl
+
+test-py: venv
+	$(PYTHON) backends/py/tests.py
 
 # Clean up the virtual environment (use with caution)
 clean:
