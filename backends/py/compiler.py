@@ -26,7 +26,7 @@ def pl_comp_return(fenv: Func, node):
     _, *kid = node
     tp, var = ('void,'), -1
     if kid:
-        tp, var = pl_comp_expr(fenv, kid[0])
+        tp, var = pl_comp_expr_tmp(fenv, kid[0])
     if tp != fenv.rtype:
         raise ValueError(f"Type mismatch: {tp} != {fenv.rtype}")
     fenv.code.append(('ret', var))
@@ -98,7 +98,11 @@ def pl_comp_expr_tmp(fenv: Func, node, *, allow_var=False):
     if len(node) == 2 and node[0] in ('val', 'val8', 'str'):
         return pl_comp_const(fenv, node)
     
-    binops = { '%', '*', '/', '+', '-', 'eq', 'ne', 'lt', 'le', 'gt', 'ge', 'and', 'or' }
+    binops = { 
+        '%', '*', '/', '+', '-', 
+        'eq', 'ne', 'lt', 'le', 'gt', 'ge', 
+        'and', 'or' 
+    }
 
     if len(node) == 3 and node[0] in binops:
         return pl_comp_binop(fenv, node)
@@ -117,6 +121,12 @@ def pl_comp_expr_tmp(fenv: Func, node, *, allow_var=False):
     if node[0] == 'set' and len(node) == 3:
         return pl_comp_setvar(fenv, node)
     
+    if len(node) in (3, 4) and node[0] in ('?', 'if'):
+        return pl_comp_cond(fenv, node)
+    
+    if node[0] == 'loop' and len(node) == 3:
+        return pl_comp_loop(fenv, node)
+
     if node == ['break']:
         if fenv.scope.loop_end < 0:
             raise ValueError("break is outside loop")
@@ -128,6 +138,12 @@ def pl_comp_expr_tmp(fenv: Func, node, *, allow_var=False):
             raise ValueError("continue is outside loop")
         fenv.code.append(('jmp', fenv.scope.loop_start))
         return ('void',), -1
+    
+    if node[0] == 'call' and len(node) >= 2:
+        return pl_comp_call(fenv, node)
+    
+    if node[0] == 'return' and len(node) in (1, 2):
+        return pl_comp_return(fenv, node)
     
 def pl_comp_newvar(fenv: Func, node):
     _, name, kid = node
@@ -249,7 +265,14 @@ def pl_comp_expr(fenv: Func, node, *, allow_var=False):
     save = fenv.stack
 
     tp, var = pl_comp_expr_tmp(fenv, node, allow_var=allow_var)
-    assert var < fenv.stack
+    
+    try:
+        assert var < fenv.stack
+    except AssertionError:
+        print(f"fenv: {fenv.scope.names}")
+        print(f"node: {node}")
+        print(f"Assertion failed: var ({var}) >= fenv.stack ({fenv.stack})")
+        raise
     
 
     if allow_var:
@@ -287,7 +310,7 @@ def pl_comp_func(fenv: Func, node):
     assert fenv.stack == len(args)
 
     body_type, var = pl_comp_expr(fenv, body)
-    if fenv.rtypep != ('void',) and fenv.rtype != body_type:
+    if fenv.rtype != ('void',) and fenv.rtype != body_type:
         raise ValueError(f"Bad body type: {body_type}")
     if fenv.rtype == ('void',):
         var = -1

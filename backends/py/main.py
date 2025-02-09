@@ -1,6 +1,9 @@
 import argparse
-from parser import pl_parse_prog
+from parser import pl_parse_prog, pl_parse_main
 from interpreter import pl_eval
+from compiler import pl_comp_main
+from func import Func
+from utils import ir_dump
 
 def main():
     parser = argparse.ArgumentParser(description='Programming Language Processor')
@@ -9,12 +12,23 @@ def main():
     parser.add_argument('--compile', action='store_true', help='Compile the program')
     parser.add_argument('--interpret', action='store_true', help='Interpret the program')
     parser.add_argument('--repl', action='store_true', help='Start REPL mode')
+    parser.add_argument('--compile-c', action='store_true', help='Compile the program to C')
+    parser.add_argument('--compile-asm', action='store_true', help='Compile the program to x86_64 assembly')
+    parser.add_argument('--compile-ir', action='store_true', help='Compile the program to IR')
 
     args = parser.parse_args()
 
     # Handle REPL mode
     if args.repl:
         print("REPL mode not implemented yet")
+        return
+
+    if args.compile_c:
+        print("C compilation not implemented yet")
+        return
+
+    if args.compile_asm:
+        print("x86_64 assembly compilation not implemented yet")
         return
 
     # If no file is provided and not in REPL mode, show help
@@ -48,6 +62,14 @@ def main():
         # Compile mode
         if args.compile:
             print("Compilation not implemented yet")
+            return
+
+
+        if args.compile_ir:
+            node = pl_parse_main(program)
+            fenv = Func(None)
+            pl_comp_main(fenv, node)
+            print(ir_dump(fenv))
             return
 
         # Interpret mode

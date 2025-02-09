@@ -9,6 +9,9 @@ PYTHON = $(VENV_DIR)/bin/python
 # The pip executable inside the virtualenv
 PIP = $(VENV_DIR)/bin/pip
 
+# Compiler settings
+CC = gcc
+
 # Create the virtual environment if it doesn't exist
 venv:
 	@if [ ! -d "$(VENV_DIR)" ]; then \
@@ -29,7 +32,7 @@ install: venv
 
 # Run the main Python script in different modes
 run-py: venv
-	$(PYTHON) backends/py/main.py samples/pl/hello.pl_lang --interpret
+	$(PYTHON) backends/py/main.py samples/pl/just_add.pl_lang --interpret
 
 parse-py: venv
 	$(PYTHON) backends/py/main.py samples/pl/hello.pl_lang --parse
@@ -37,11 +40,29 @@ parse-py: venv
 compile-py: venv
 	$(PYTHON) backends/py/main.py samples/pl/hello.pl_lang --compile
 
+compile-ir-py: venv
+	$(PYTHON) backends/py/main.py samples/pl/multply.pl_lang --compile-ir
+
 repl-py: venv
 	$(PYTHON) backends/py/main.py --repl
 
 test-py: venv
 	$(PYTHON) backends/py/tests.py
+
+# Build C samples
+build-c-hello:
+	$(CC) -o samples/c/hello samples/c/hello.c
+
+# Generate unlinked x86_64 assembly
+asm-c-hello:
+	$(CC) -S -m64 -arch x86_64 -fno-asynchronous-unwind-tables \
+		-fno-exceptions -fno-rtti \
+		-o samples/c/hello.s samples/c/hello.c
+
+# Run C hello world program
+run-c-hello: build-c-hello
+	./samples/c/hello
+
 
 # Clean up the virtual environment (use with caution)
 clean:

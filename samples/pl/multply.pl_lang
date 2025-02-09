@@ -1,0 +1,5 @@
+(def (mult int) ((n int)) (do
+    (var r 2)
+    (return (* r n))
+))
+(call mult 4)
