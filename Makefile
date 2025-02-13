@@ -32,16 +32,16 @@ install: venv
 
 # Run the main Python script in different modes
 run-py: venv
-	$(PYTHON) backends/py/main.py samples/pl/just_add.pl_lang --interpret
+	$(PYTHON) backends/py/main.py $(if $(FILE),$(FILE),samples/pl/multiply.pl_lang) --interpret
 
 parse-py: venv
-	$(PYTHON) backends/py/main.py samples/pl/hello.pl_lang --parse
+	$(PYTHON) backends/py/main.py $(if $(FILE),$(FILE),samples/pl/multiply.pl_lang) --parse
 
 compile-py: venv
-	$(PYTHON) backends/py/main.py samples/pl/hello.pl_lang --compile
+	$(PYTHON) backends/py/main.py $(if $(FILE),$(FILE),samples/pl/multiply.pl_lang) --compile
 
 compile-ir-py: venv
-	$(PYTHON) backends/py/main.py samples/pl/multply.pl_lang --compile-ir
+	$(PYTHON) backends/py/main.py $(if $(FILE),$(FILE),samples/pl/multiply.pl_lang) --compile-ir
 
 repl-py: venv
 	$(PYTHON) backends/py/main.py --repl
@@ -52,6 +52,15 @@ test-py: venv
 # Build C samples
 build-c-hello:
 	$(CC) -o samples/c/hello samples/c/hello.c
+
+# Build C parser
+build-c-parser:
+	$(CC) -o backends/c/parser backends/c/parser.c
+
+# Run C parser
+run-c-parser: build-c-parser
+	./backends/c/parser $(if $(FILE),$(FILE),samples/pl/multiply.pl_lang)
+
 
 # Generate unlinked x86_64 assembly
 asm-c-hello:
