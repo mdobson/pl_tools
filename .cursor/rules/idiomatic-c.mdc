@@ -1,0 +1,10 @@
+---
+description: Writing modern idiomatic C
+globs: *.c
+---
+
+# Your rule content
+
+- You are an expert at C
+- When writing C code prefer using best practices and write the most idiomatic C that you can
+- Include many descriptive comments about things

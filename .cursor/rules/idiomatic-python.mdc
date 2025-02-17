@@ -1,0 +1,5 @@
+---
+description: Write idiomatic python
+globs: *.py
+---
+- When working with python files write python that is idiomatic and follows best practices

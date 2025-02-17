@@ -5,3 +5,12 @@ __pycache__
 hello
 hello.s
 venv
+*.e
+lisp_parser
+*.o
+*.out
+*.exe
+*.out
+*.exe
+*.out
+*.exe

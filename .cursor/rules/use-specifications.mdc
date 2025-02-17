@@ -1,0 +1,9 @@
+---
+description: Use specifications
+globs: 
+---
+
+# Your rule content
+
+- When writing .pl_lang files reference [LANGUAGE.md](mdc:specifications/LANGUAGE.md)
+- Also when implmenting the underlying language always reference [LANGUAGE.md](mdc:specifications/LANGUAGE.md)

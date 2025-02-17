@@ -1,0 +1,6 @@
+
+(def greet (str) (do
+  (var s (file "samples/hello.txt"))
+  (print (+ "Hello, " s))
+))
+(call greet "mdobs")

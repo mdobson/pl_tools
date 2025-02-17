@@ -1,129 +1,124 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "lisp_parser.h"
 
-#include "expr.h"
-#include "types.h"
-
-char* read_file_to_string(const char* filename) {
-    FILE* file = fopen(filename, "r");
-    if (file == NULL) {
-        fprintf(stderr, "Could not open file %s\n", filename);
-        return NULL;
-    }
-
-    // Get file size
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    rewind(file);
-
-    // Allocate buffer
-    char* buffer = (char*)malloc(file_size + 1);
-    if (buffer == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        fclose(file);
-        return NULL;
-    }
-
-    // Read file into buffer
-    size_t read_size = fread(buffer, 1, file_size, file);
-    buffer[read_size] = '\0';
-
-    fclose(file);
-    return buffer;
+// skip_whitespace
+// Advances the input pointer past any whitespace characters.
+void skip_whitespace(const char **input) {
+    while (**input && isspace(**input))
+        (*input)++;
 }
 
+// parse_atom
+// Reads an atomic token from the input, stopping at whitespace or parentheses.
+char* parse_atom(const char **input) {
+    const char *start = *input;
+    while (**input && !isspace(**input) && **input != '(' && **input != ')')
+        (*input)++;
+    size_t len = *input - start;
+    char *token = malloc(len + 1);
+    if (!token) {
+        perror("malloc failed");
+        exit(EXIT_FAILURE);
+    }
+    strncpy(token, start, len);
+    token[len] = '\0';
+    return token;
+}
 
-int skip_space(const char* s, int idx) {
-    while (1) {
-        int save = idx;
-        
-        // Skip whitespace
-        while (s[idx] != '\0' && (s[idx] == ' ' || s[idx] == '\t' || s[idx] == '\n' || s[idx] == '\r')) {
-            idx++;
-        }
-
-        // Skip comments
-        if (s[idx] == ';') {
-            idx++;
-            while (s[idx] != '\0' && s[idx] != '\n') {
-                idx++;
-            }
-        }
-
-        if (idx == save) {
+// determine_atom_type
+// Analyzes a token string and determines its AtomType
+AtomType determine_atom_type(const char *token) {
+    if (!token) return ATOM_IDENTIFIER;  // Default for NULL tokens
+    
+    // Check if it's a number (integer)
+    int is_number = 1;
+    for (const char *p = token; *p != '\0'; p++) {
+        if (!isdigit(*p)) {
+            is_number = 0;
             break;
         }
     }
-    return idx;
+    if (is_number) return ATOM_INTEGER;
+    
+    // Check for keywords
+    const char *keywords[] = {"def", "do", "call", "return", "var", NULL};
+    for (const char **kw = keywords; *kw != NULL; kw++) {
+        if (strcmp(token, *kw) == 0) {
+            return ATOM_KEYWORD;
+        }
+    }
+    
+    // Check if it's a string (surrounded by quotes)
+    size_t len = strlen(token);
+    if (len >= 2 && token[0] == '"' && token[len-1] == '"') {
+        return ATOM_STRING;
+    }
+    
+    // Default case: it's an identifier
+    return ATOM_IDENTIFIER;
 }
 
+// parse_expr
+// Recursively parses an expression. An expression can be:
+//   - A list: begins with '(' and continues until its matching ')'.
+//   - An atom: any token other than a parenthesis.
+Node* parse_expr(const char **input) {
+    skip_whitespace(input);
+    if (**input == '\0')
+        return NULL;
 
-Expr* parse_atom(char* s) {
-    Expr* expr = (Expr*)malloc(sizeof(Expr));
-    expr->type = ATOM;
-    expr->value = s;
-    return expr;
-}
+    if (**input == '(') {
+        // Begin a list.
+        (*input)++; // consume '('
+        Node *node = malloc(sizeof(Node));
+        if (!node) {
+            perror("malloc failed");
+            exit(EXIT_FAILURE);
+        }
+        node->type = NODE_LIST;
+        node->data.list = NULL;
+        NodeList *last = NULL;
 
-Expr* parse_expr(char* s) {
-    int idx = 0;
-    idx = skip_space(s, idx);
-
-    if (s[idx] == '(') {
-        idx++;
-        Expr* expr = (Expr*)malloc(sizeof(Expr));
-        expr->type = EXPR;
-        expr->value = s + idx;
-
+        // Parse each sub-expression until we hit the closing ')'.
         while (1) {
-            idx = skip_space(s, idx);
-            if (s[idx] == '\0') {
-                free(expr);
-                return NULL; // Unclosed parenthesis
-            }
-            if (s[idx] == ')') {
-                idx++;
+            skip_whitespace(input);
+            if (**input == ')') {
+                (*input)++; // consume ')'
                 break;
             }
-            Expr* sub_expr = parse_expr(s + idx);
-            if (sub_expr == NULL) {
-                free(expr);
-                return NULL;
+            Node *child = parse_expr(input);
+            if (!child)
+                break;
+
+            // Wrap the child in a linked list node.
+            NodeList *child_node = malloc(sizeof(NodeList));
+            if (!child_node) {
+                perror("malloc failed");
+                exit(EXIT_FAILURE);
             }
-            // TODO: Add sub_expr to list
-            idx += (sub_expr->value - (s + idx));
-            free(sub_expr);
+            child_node->node = child;
+            child_node->next = NULL;
+            if (node->data.list == NULL)
+                node->data.list = child_node;
+            else
+                last->next = child_node;
+            last = child_node;
         }
-        return expr;
-    }
-    else if (s[idx] == ')') {
-        return NULL; // Unmatched parenthesis
-    }
-    else {
-        int start = idx;
-        while (s[idx] != '\0' && !isspace(s[idx]) && s[idx] != '(' && s[idx] != ')') {
-            idx++;
+        return node;
+    } else if (**input == ')') {
+        // Encountering a closing parenthesis here indicates an error.
+        fprintf(stderr, "Unexpected closing parenthesis.\n");
+        exit(EXIT_FAILURE);
+    } else {
+        // Parse an atomic token.
+        char *token = parse_atom(input);
+        Node *node = malloc(sizeof(Node));
+        if (!node) {
+            perror("malloc failed");
+            exit(EXIT_FAILURE);
         }
-        char* atom = (char*)malloc(idx - start + 1);
-        strncpy(atom, s + start, idx - start);
-        atom[idx - start] = '\0';
-        return parse_atom(atom);
+        node->type = NODE_ATOM;
+        node->data.atom.value = token;
+        node->data.atom.atom_type = determine_atom_type(token);
+        return node;
     }
-}
-
-int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
-        return 1;
-    }
-
-    char* content = read_file_to_string(argv[1]);
-    if (content == NULL) {
-        return 1;
-    }
-
-    printf("%s", content);
-    free(content);
-    return 0;
-}
+} 

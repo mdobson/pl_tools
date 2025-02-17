@@ -32,10 +32,10 @@ install: venv
 
 # Run the main Python script in different modes
 run-py: venv
-	$(PYTHON) backends/py/main.py $(if $(FILE),$(FILE),samples/pl/multiply.pl_lang) --interpret
+	$(PYTHON) backends/py/main.py $(if $(FILE),$(FILE),samples/pl/print.pl_lang) --interpret
 
 parse-py: venv
-	$(PYTHON) backends/py/main.py $(if $(FILE),$(FILE),samples/pl/multiply.pl_lang) --parse
+	$(PYTHON) backends/py/main.py $(if $(FILE),$(FILE),samples/pl/print.pl_lang) --parse
 
 compile-py: venv
 	$(PYTHON) backends/py/main.py $(if $(FILE),$(FILE),samples/pl/multiply.pl_lang) --compile
@@ -52,6 +52,12 @@ test-py: venv
 # Build C samples
 build-c-hello:
 	$(CC) -o samples/c/hello samples/c/hello.c
+
+build-c-iterable:
+	$(CC) -o samples/c/iterable.e samples/c/iterable.c
+
+run-c-iterable: build-c-iterable
+	./samples/c/iterable.e
 
 # Build C parser
 build-c-parser:
@@ -72,6 +78,13 @@ asm-c-hello:
 run-c-hello: build-c-hello
 	./samples/c/hello
 
+# Build lisp parser sample
+build-c-lisp-parser:
+	$(CC) -o samples/c/lisp_parser.e samples/c/lisp_parser.c
+
+# Run lisp parser sample
+run-c-lisp-parser: build-c-lisp-parser
+	./samples/c/lisp_parser.e
 
 # Clean up the virtual environment (use with caution)
 clean:

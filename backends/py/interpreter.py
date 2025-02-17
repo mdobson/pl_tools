@@ -125,6 +125,14 @@ def pl_eval(env, node):
             return pl_eval((new_env, fenv), fbody)
         except FuncReturn as ret:
             return ret.val
+
+    if node[0] == 'file' and len(node) == 2:
+        _, path = node
+        path = pl_eval(env, path)
+        import os
+        print(os.getcwd())
+        with open(path, 'r') as f:
+            return f.read()
     
     if node[0] == 'break' and len(node) == 1:
         raise LoopBreak
